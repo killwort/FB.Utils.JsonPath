@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using FB.Utils.JsonPath.Language;
@@ -9,7 +8,8 @@ namespace FB.Utils.JsonPath {
         private List<JToken> _result;
         private Stack<List<JToken>> _context = new Stack<List<JToken>>();
         private JToken _root;
-        private Dictionary<string, Func<IEnumerable<IEnumerable<JToken>>, IEnumerable<JToken>>> _functions = new Dictionary<string, Func<IEnumerable<IEnumerable<JToken>>, IEnumerable<JToken>>>();
+        private Dictionary<string, JsonPathCustomFunction> _functions = new Dictionary<string, JsonPathCustomFunction>();
+        public EvaluatingVisitor() { }
         public EvaluatingVisitor(JToken root) { _root = root; }
 
         public IEnumerable<JToken> Result => _result ??= _context.Pop();
@@ -297,6 +297,12 @@ namespace FB.Utils.JsonPath {
 
         public void VisitPredicativeArgument(PredicativeArgument predicativeArgument) { predicativeArgument.Predicate.Visit(this); }
 
-        public void RegisterFunction(string name, Func<IEnumerable<IEnumerable<JToken>>, IEnumerable<JToken>> func) { _functions[name] = func; }
+        public void RegisterFunction(string name, JsonPathCustomFunction func) { _functions[name] = func; }
+
+        public void Reset(JToken newSource) {
+            _root = newSource;
+            _context.Clear();
+            _result = null;
+        }
     }
 }
