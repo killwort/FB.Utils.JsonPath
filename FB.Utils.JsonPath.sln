@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2035
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FB.Utils.JsonPath", "FB.Utils.JsonPath.csproj", "{0E50361B-9C05-47CB-92D5-18D71F1A8746}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0E50361B-9C05-47CB-92D5-18D71F1A8746}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E50361B-9C05-47CB-92D5-18D71F1A8746}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E50361B-9C05-47CB-92D5-18D71F1A8746}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E50361B-9C05-47CB-92D5-18D71F1A8746}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F5387D35-DD5C-439A-93E5-C203DC97C6D6}
+	EndGlobalSection
+EndGlobal

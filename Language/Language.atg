@@ -1,0 +1,361 @@
+﻿using System.Linq;
+using System.Collections;
+using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
+COMPILER JsonPath
+public Expression result;
+private bool HasColon() {
+	var t = la;
+	while (t.val != ":" && t.val != "," && t.val != "]" && t.kind!=_EOF) {
+		t = scanner.Peek();
+	}
+	return t.val == ":";
+}
+private bool LookaheadCheck(string goodToken, params string[] delimitingTokens) {
+	var t = la;
+	while (!delimitingTokens.Contains(t.val) && t.kind!=_EOF) {
+		t = scanner.Peek();
+	}
+	return t.val == goodToken;
+}
+public static Expression Parse(string src){
+	var errorCollector=new ErrorCollector();
+	var p=new Parser(new Scanner(new StringBuffer(src)),errorCollector);
+	p.Parse();
+	errorCollector.ThrowErrors();
+	return p.result;
+}
+
+private SourcePosition SP=>new SourcePosition(t.line, t.col);
+
+CHARACTERS
+esc         =   "\\".
+identQuote  =   "'".
+stringQuote =   "\"".
+dot         =   ".".
+stringChar	=	ANY-stringQuote-esc-identQuote-dot.
+
+TOKENS
+stringChar  =   stringChar.
+
+esc			=	esc.
+identQuote  =   identQuote.
+stringQuote =   stringQuote.
+
+openPar		=	"(".
+closePar	=	")".
+
+true        =   "true".
+false       =   "false".
+
+object      =   "object".
+array       =   "array".
+string      =   "string".
+number      =   "number".
+boolean     =   "boolean".
+null        =   "null".
+
+IGNORE
+'\r'+'\n'+'\t'
+
+
+PRODUCTIONS
+keywords
+=
+    object|array|string|number|boolean|null|true|false|"0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"|"e"|"E"
+.
+DigitNonZero<out int n>                             (. n=-1; .)
+=
+    "1"                                             (. n=1; .)
+    | "2"                                           (. n=2; .)
+    | "3"                                           (. n=3; .)
+    | "4"                                           (. n=4; .)
+    | "5"                                           (. n=5; .)
+    | "6"                                           (. n=6; .)
+    | "7"                                           (. n=7; .)
+    | "8"                                           (. n=8; .)
+    | "9"                                           (. n=9; .)
+.
+
+Digit<out int n>                                    (. n=0; .)
+=
+    DigitNonZero<out n>
+    | "0"
+.
+
+SignedInt<out int n>                                (. n=0; bool neg=false; .)
+=
+    [
+        "-"                                         (. neg=true; .)
+    ]
+    Digit<out var d>                                (. n=d; .)
+    {
+        Digit<out d>                                (. n=n*10+d; .)
+    }                                               (. if(neg) n=-n; .)
+.
+
+Int<out int n>
+=
+    Digit<out var d>                                (. n=d; .)
+    {
+        Digit<out d>                                (. n=n*10+d; .)
+    }
+.
+
+Number<out double f>
+=
+    SignedInt<out var n>                            (. f=n; .)
+    ["."
+        Int<out n>                                  (. f=f+(double)n/Math.Pow(10,Math.Ceiling(Math.Log10(n))); .)
+    ] [ ("e"|"E")
+        Int<out n>                                  (. f=f*Math.Pow(10,n); .)
+    ]
+.
+
+SignedIntNonZero<out int n>                         (. n=0; bool neg=false; .)
+=
+    [
+        "-"                                         (. neg=true; .)
+    ]
+    DigitNonZero<out var d>                         (. n=d; .)
+    {
+        Digit<out d>                                (. n=n*10+d; .)
+    }                                               (. if(neg) n=-n; .)
+.
+
+QuotedIdent<out string name>                        (. name=""; .)
+=
+	identQuote {
+	    stringChar                                  (. name+=t.val; .)
+	    |"."                                        (. name+=t.val; .)
+	    |keywords                                   (. name+=t.val; .)
+	    |stringQuote                                (. name+=t.val; .)
+	    |esc identQuote                             (. name+="'"; .)
+	    |esc esc                                    (. name+="\\"; .)
+	} identQuote
+.
+
+Ident<out string name>
+=
+    (stringChar|keywords)                           (. name=t.val; .)
+    {
+        (stringChar|keywords)                       (. name+=t.val; .)
+    }
+.
+
+QuotedString<out string name>                       (. name=""; .)
+=
+	stringQuote {
+	    stringChar                                  (. name+=t.val; .)
+	    |"."                                        (. name+=t.val; .)
+	    |"e"                                        (. name+=t.val; .)
+	    |identQuote                                 (. name+=t.val; .)
+	    |esc stringQuote                            (. name+="\""; .)
+	    |esc esc                                    (. name+="\\"; .)
+	} stringQuote
+.
+
+Unary<out PredicativeExpressionElement elem>        (. elem=null; .)
+=
+    "@" QualifiedPath<out var pathelem>             (. elem=new Reference(SP){Path=pathelem}; .)
+    | Number<out var f>                             (. elem=new Constant<double>(SP,f); .)
+    | QuotedString<out var s>                       (. elem=new Constant<string>(SP,s); .)
+    | true                                          (. elem=new Constant<bool>(SP,true); .)
+    | false                                         (. elem=new Constant<bool>(SP,false); .)
+    | "null"                                        (. elem=new NullConstant(SP); .)
+.
+
+Multiplicative<out PredicativeExpressionElement elem>   (. var xelem=new Arithmetic(SP); elem=xelem; .)
+=
+    Unary<out var d>                                (. xelem.Left=d; .)
+    [
+        (
+            "*"                                     (. xelem.Operator=ArithmeticOperator.Multiplication; .)
+            | "/"                                   (. xelem.Operator=ArithmeticOperator.Division; .)
+            | "%"                                   (. xelem.Operator=ArithmeticOperator.Modulus; .)
+        )
+        Multiplicative<out d>                       (. xelem.Right=d; .)
+    ]
+.
+
+Additive<out PredicativeExpressionElement elem>     (. var xelem=new Arithmetic(SP); elem=xelem; .)
+=
+    Multiplicative<out var d>                       (. xelem.Left=d; .)
+    [
+        (
+            "+"                                     (. xelem.Operator=ArithmeticOperator.Addition; .)
+            | "-"                                   (. xelem.Operator=ArithmeticOperator.Subtraction; .)
+        )
+        Additive<out d>                             (. xelem.Right=d; .)
+    ]
+.
+
+Relational<out PredicativeExpressionElement elem>   (. var xelem=new Relational(SP); elem=xelem; .)
+=
+    Additive<out var d>                             (. xelem.Left=d; .)
+    [
+        (
+            ">"                                     (. xelem.Operator=Relation.Greater; .)
+            | ">="                                  (. xelem.Operator=Relation.GreaterOrEqual; .)
+            | "<"                                   (. xelem.Operator=Relation.Less; .)
+            | "<="                                  (. xelem.Operator=Relation.LessOrEqual; .)
+        )
+        Relational<out d>                           (. xelem.Right=d; .)
+    ]
+.
+
+Conjunct<out PredicativeExpressionElement elem>     (. var xelem=new Relational(SP); elem=xelem; .)
+=
+    Relational<out var d>                           (. xelem.Left=d; .)
+    [
+        (
+            "="                                     (. xelem.Operator=Relation.Equal; .)
+            | "!="                                  (. xelem.Operator=Relation.NotEqual; .)
+        )
+        Conjunct<out d>                             (. xelem.Right=d; .)
+    ]
+.
+
+Disjunct<out PredicativeExpressionElement elem>     (. var xelem=new Conjunction(SP); elem=xelem; .)
+=
+    Conjunct<out var d>                             (. xelem.Left=d; .)
+    [ "&&"
+        Disjunct<out d>                             (. xelem.Right=d; .)
+    ]
+.
+
+
+Disjunction<out PredicativeExpressionElement elem>  (. var xelem=new Disjunction(SP); elem=xelem; .)
+=
+    Disjunct<out var d>                             (. xelem.Left=d; .)
+    [ "||"
+        Disjunction<out d>                          (. xelem.Right=d; .)
+    ]
+.
+
+Filter<out FilterPredicate filt>
+=
+    "?("
+       Disjunction<out var dis>                     (. filt=new FilterPredicate(SP){Predicate=dis}; .)
+    ")"
+.
+
+UnionExpression<out Predicate pred>                 (. pred=null; .)
+=
+    RelativePath<out var elem>                      (. pred=new MemberAccess(SP){Member=elem}; .)
+    | Filter<out var filt>                          (. pred=filt; .)
+.
+
+PredicateExpression<out Predicate pred>             (. pred=null; .)
+=
+    "*"                                             (. pred=new WildcardPredicate(SP); .)
+    |   IF(HasColon())
+                                                    (. var xpred=new ArrayIteration(SP); pred=xpred; .)
+        [
+            SignedInt<out var n>                    (. xpred.Start=n; .)
+        ] ":" [
+            SignedInt<out var n>                    (. xpred.End=n; .)
+        ] [ ":"
+            SignedIntNonZero<out var n>             (. xpred.Step=n; .)
+        ]
+    |                                               (. var xpred=new ArrayIndex(SP); pred=xpred; .)
+        Int<out var n>                              (. xpred.Add(n); .)
+        { ","
+            Int<out n>                              (. xpred.Add(n); .)
+        }
+    |                                               (. var xpred=new UnionPredicate(SP); pred=xpred; .)
+        UnionExpression<out var p>                  (. xpred.Items.Add(p); .)
+        { ","
+            UnionExpression<out p>                  (. xpred.Items.Add(p); .)
+        }
+.
+
+Predicate<out Predicate pred>
+=
+    "[" PredicateExpression<out pred> "]"
+.
+
+Name<out string name>                               (. name=null; .)
+=
+    QuotedIdent<out name>
+    | Ident<out name>
+.
+NodeType<out JTokenType? t>                         (. t=null; .)
+=
+    object      openPar closePar                    (. t=JTokenType.Object; .)
+    |  array   openPar closePar                     (. t=JTokenType.Array; .)
+    |  string  openPar closePar                     (. t=JTokenType.String; .)
+    |  number  openPar closePar                     (. t=JTokenType.Float; .)
+    |  boolean openPar closePar                     (. t=JTokenType.Boolean; .)
+    |  null    openPar closePar                     (. t=JTokenType.Null; .)
+.
+
+NameTest<out string name>                           (. name=null; .)
+=
+    "*"
+    | Name<out name>
+.
+
+NodeTest<out PathElementWithPredicate elem>         (. elem=null; .)
+=
+    NodeType<out var t>                             (. elem=new TypeCheckElement(SP){Type=t.Value}; .)
+    | NameTest<out var name>                        (. elem=new NameCheckElement(SP){Name=name}; .)
+.
+
+RelativePath<out PathElement rv>
+=
+    NodeTest<out var elem>                          (. rv=elem; .)
+    [
+        Predicate<out var predicate>                (. elem.Predicate=predicate; .)
+    ]
+    [
+        QualifiedPath<out var rest>                 (. elem.Next=rest; .)
+    ]
+.
+
+QualifiedPath<out PathElement elem>                 (. elem=null; .)
+=
+    "." RelativePath<out elem>
+    |
+        ".."                                        (. elem=new DescendantsPathElement(SP); .)
+        RelativePath<out var innerElem>             (. elem.Next=innerElem; .)
+.
+
+AbsolutePath<out PathElement expr>                  (. expr=new RootElement(SP); .)
+=
+    "$"
+    [
+        QualifiedPath<out var items>                (. expr.Next=items; .)
+    ]
+.
+
+FunctionArgument<out FunctionArgument expr>         (. expr=null; .)
+=
+    Expression<out var e>                           (. expr=new ExpressionArgument(SP){Expression=e}; .)
+    | Disjunction<out var dis>                      (. expr=new PredicativeArgument(SP){Predicate=dis}; .)
+.
+
+FunctionCall<out FunctionCall expr>                 (. expr=new FunctionCall(SP); .)
+=
+    Name<out var s>                                 (. expr.Function = s; .)
+    openPar [
+        FunctionArgument<out var arg1>              (. expr.Arguments.Add(arg1); .)
+        {
+            "," FunctionArgument<out var argN>      (. expr.Arguments.Add(argN); .)
+        }
+    ] closePar
+.
+
+Expression<out Expression expr>                     (. expr=null; .)
+=
+    IF (LookaheadCheck("(", "(", ",", ")", "[", "."))
+    FunctionCall<out var e>                         (. expr=e; .)
+    | AbsolutePath<out var e>                       (. expr=e; .)
+    | RelativePath<out var e>                       (. expr=e; .)
+.
+
+JsonPath
+=
+    Expression<out var expr>                        (. result = expr; .)
+.
+END JsonPath.

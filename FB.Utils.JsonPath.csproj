@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Authors>Andrey Zakharov</Authors>
+    <Company>Flippingbook</Company>
+    <Product>CoreLibs</Product>
+    <RootNamespace>FB.Utils.JsonPath</RootNamespace>
+    <AssemblyName>FB.Utils.JsonPath</AssemblyName>
+    <Description>Extensible JsonPath evaluator.</Description>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Language\Parser.cs.old" />
+    <None Remove="Language\Scanner.cs.old" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+  </ItemGroup>
+  <PropertyGroup>
+    <PreBuildEvent>if exist $(SolutionDir).lock goto end
+echo &gt; $(SolutionDir).lock
+for %25%25D in ("$(SolutionDir)\Language\*.atg") DO $(SolutionDir)\Language\Coco.exe %25%25D -frames $(SolutionDir)\Language -namespace FB.Utils.JsonPath.Language
+del /q $(SolutionDir).lock
+:end</PreBuildEvent>
+  </PropertyGroup>
+</Project>
