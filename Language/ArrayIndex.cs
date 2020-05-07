@@ -12,7 +12,7 @@ namespace FB.Utils.JsonPath.Language {
             builder.Append(delimiter);
             builder.Append(lastDelimiter);
             builder.Append("Predicate   array index ");
-            builder.AppendJoin(", ", Indexes);
+            builder.Append(string.Join(", ", Indexes));
             builder.AppendLine();
         }
 

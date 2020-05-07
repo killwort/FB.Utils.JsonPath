@@ -16,7 +16,7 @@ namespace FB.Utils.JsonPath {
         }
 
         public void VisitArrayIndex(ArrayIndex arrayIndex) {
-            _builder.AppendJoin(", ", arrayIndex.Indexes);
+            _builder.Append(string.Join(", ", arrayIndex.Indexes));
         }
 
         public void VisitArrayIteration(ArrayIteration arrayIteration) {

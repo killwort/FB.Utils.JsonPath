@@ -278,8 +278,11 @@ namespace FB.Utils.JsonPath {
         }
 
         public void VisitFunctionCall(FunctionCall functionCall) {
-            _context.TryPeek(out var save);
-            if (save == null) save = new List<JToken>();
+            List<JToken> save;
+            if (_context.Count > 0)
+                save = _context.Peek();
+            else
+                save = new List<JToken>();
             var argv = new List<List<JToken>>();
             foreach (var argument in functionCall.Arguments) {
                 _context.Push(save);
