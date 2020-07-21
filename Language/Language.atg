@@ -147,6 +147,7 @@ QuotedString<out string name>                       (. name=""; .)
 =
 	stringQuote {
 	    stringChar                                  (. name+=t.val; .)
+	    |Digit<out var nn>                          (. name+=nn.ToString(); .)
 	    |"."                                        (. name+=t.val; .)
 	    |"e"                                        (. name+=t.val; .)
 	    |identQuote                                 (. name+=t.val; .)
