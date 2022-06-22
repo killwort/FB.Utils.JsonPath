@@ -15,7 +15,7 @@
     <None Remove="Language\Scanner.cs.old" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>if exist $(SolutionDir).lock goto end
